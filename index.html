@@ -1,154 +1,50 @@
-
-<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>The Kimcast</title>
-<style>
-body{font:16px system-ui;margin:0;background:#f5f6fa;color:#222}
-main{max-width:850px;margin:auto;padding:12px}
-h1{font-size:24px}
-section{background:white;border:1px solid #ddd;border-radius:12px;padding:12px;margin:14px 0}
-.grid{display:grid;grid-template-columns:72px repeat(5,minmax(0,1fr));gap:4px}
-.grid span{font-size:10px;text-align:center;align-self:center;overflow-wrap:anywhere}
-button{cursor:pointer}
-.cell{min-height:42px;border:1px solid #ccc;border-radius:6px;background:#edf0f5;font-size:18px}
-.visited{background:#ffedbc}
-.done{background:#c9efd5}
-.active{outline:3px solid #4479d5}
-li{margin:12px 0;line-height:1.4}
-.action{padding:10px;margin:4px;border:1px solid #aaa;border-radius:8px;background:white}
-small{color:#666}
-</style>
-</head>
-<body>
-<main>
-<h1>The Kimcast</h1>
-<p>Frankenstein conversation navigator</p>
-<div id="journey"></div>
-</main>
-<script>
-const people=["Victor","Creature","Elizabeth","Henry","Walton"];
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>The Kimcast</title><style>
+body{font:16px system-ui;margin:0;background:#f5f6fa;color:#222}main{max-width:850px;margin:auto;padding:12px}h1{font-size:24px}section{background:white;border:1px solid #ddd;border-radius:12px;padding:12px;margin:14px 0}.grid{display:grid;grid-template-columns:72px repeat(5,minmax(0,1fr));gap:4px}.grid span{font-size:10px;text-align:center;align-self:center;overflow-wrap:anywhere}button{cursor:pointer}.cell{min-height:42px;border:1px solid #ccc;border-radius:6px;background:#edf0f5;font-size:18px}.visited{background:#ffedbc}.done{background:#c9efd5}li{margin:12px 0;line-height:1.4}.action{padding:10px;margin:4px;border:1px solid #aaa;border-radius:8px;background:white}small{color:#666}textarea{width:100%;box-sizing:border-box;min-height:240px}select,input{padding:7px;max-width:100%}.hidden{display:none}.row{display:flex;flex-wrap:wrap;align-items:center;gap:6px}.filtered{opacity:.16;pointer-events:none}#message{font-size:13px;color:#52617a}
+</style></head><body><main><h1>The Kimcast</h1><p>Novel conversation navigator</p><div class="row"><button id="login" class="action">Sign in with Google</button><button id="logout" class="action hidden">Sign out</button><small id="who">Sign in to sync across devices</small></div><p id="message"></p><section><div class="row"><label>Novel <select id="novel"></select></label><button id="addNovel" class="action">Add novel</button><button id="edit" class="action">Edit questions</button><button id="reset" class="action">New discussion</button></div></section><section id="editor" class="hidden"><h2>Edit questions</h2><div class="row"><label>Character <select id="editPerson"></select></label><label>Area <select id="editTopic"></select></label></div><p><small>One question per line. The first three are Remember / Understand; the rest are Analyse / Apply.</small></p><textarea id="qtext"></textarea><div><button id="saveQ" class="action">Save questions</button><button id="close" class="action">Close</button></div></section><div id="journey"></div></main>
+<script type="module">
+import{initializeApp}from"https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
+import{getAuth,GoogleAuthProvider,signInWithPopup,signInWithRedirect,onAuthStateChanged,signOut,getRedirectResult}from"https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
+import{getFirestore,doc,getDoc,setDoc,onSnapshot}from"https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+const app=initializeApp({apiKey:"AIzaSyDLE2wB-eWuTHJr0sH7yrP6bVC-J19xrfI",authDomain:"kimcast-ad8c0.firebaseapp.com",projectId:"kimcast-ad8c0",storageBucket:"kimcast-ad8c0.firebasestorage.app",messagingSenderId:"20591908510",appId:"1:20591908510:web:221e9e1c5834efe1c14d8f",measurementId:"G-2YS0ZX61B3"});
+const auth=getAuth(app),db=getFirestore(app),provider=new GoogleAuthProvider(),$=id=>document.getElementById(id);
 const topics=["Personality","Development","Actions","Relationships","Plot","Themes"];
-const status={};
-const journey=document.getElementById("journey");
-
-const questions={
-"Victor-Actions":[
-"What does Victor do immediately after creating the Creature?",
-"Why does he abandon his creation?",
-"What does he do when Justine is accused?",
-"Which decision causes the greatest suffering?",
-"What could Victor have done differently?",
-"When should he have accepted responsibility?"
-],
-"Victor-Personality":[
-"How would you describe Victor as a young man?",
-"What interests him most?",
-"How does he react when his experiment succeeds?",
-"Is he ambitious or obsessive?",
-"What does his behaviour reveal about his character?",
-"How does he compare with Henry?"
-],
-"Creature-Actions":[
-"How does the Creature help the De Laceys?",
-"What does he do to William?",
-"Why does he demand a companion?",
-"Which of his actions can you understand?",
-"Which actions are impossible to justify?",
-"What alternatives did he have to revenge?"
-],
-"Creature-Relationships":[
-"What does the Creature want from Victor?",
-"How does he relate to the De Laceys?",
-"Why does he want a companion?",
-"Is Victor a parent figure?",
-"How might acceptance have changed him?",
-"Who is responsible for their broken relationship?"
-]
-};
-
-function makeGrid(){
-const section=document.createElement("section");
-const heading=document.createElement("h3");
-heading.textContent="Where next?";
-section.append(heading);
-const grid=document.createElement("div");
-grid.className="grid";
-grid.append(document.createElement("span"));
-people.forEach(p=>{
-const s=document.createElement("span");
-s.textContent=p;grid.append(s);
-});
-topics.forEach(t=>{
-const label=document.createElement("span");
-label.textContent=t;grid.append(label);
-people.forEach(p=>{
-const b=document.createElement("button");
-const key=p+"-"+t;
-b.className="cell";
-b.textContent=status[key]==="done"?"✓":status[key]?"●":"○";
-if(status[key])b.classList.add(status[key]==="done"?"done":"visited");
-b.setAttribute("aria-label",key);
-b.onclick=()=>openTopic(p,t);
-grid.append(b);
-});
-});
-section.append(grid);
-return section;
-}
-
-function openTopic(person,topic){
-const key=person+"-"+topic;
-status[key]="visited";
-const section=document.createElement("section");
-const title=document.createElement("h2");
-title.textContent=person+" — "+topic;
-section.append(title);
-
-const list=questions[key]||[
-"What do we learn about "+person+" in relation to "+topic.toLowerCase()+"?",
-"Which scene best illustrates this?",
-"How does this change during the novel?",
-"Why does "+person+" behave this way?",
-"What are the consequences?",
-"How does another character see this differently?"
-];
-const lower=document.createElement("h3");
-lower.textContent="Remember / Understand";
-section.append(lower);
-addQuestions(section,list.slice(0,3));
-const higher=document.createElement("h3");
-higher.textContent="Analyse / Apply";
-section.append(higher);
-addQuestions(section,list.slice(3));
-
-const complete=document.createElement("button");
-complete.className="action";
-complete.textContent="✓ Mark completed";
-complete.onclick=()=>{
-status[key]="done";
-complete.textContent="Completed ✓";
-};
-section.append(complete);
-journey.append(section);
-const next=makeGrid();
-journey.append(next);
-next.scrollIntoView({behavior:"smooth",block:"end"});
-}
-
-function addQuestions(section,items){
-const ol=document.createElement("ol");
-items.forEach(q=>{
-const li=document.createElement("li");
-li.textContent=q;ol.append(li);
-});
-section.append(ol);
-}
-
-journey.append(makeGrid());
-</script>
-</body>
-</html>
-
+const people=["Victor","Creature","Elizabeth","Henry","Walton"];
+const original={
+"Victor-Actions":["What does Victor do immediately after creating the Creature?","Why does he abandon his creation?","What does he do when Justine is accused?","Which decision causes the greatest suffering?","What could Victor have done differently?","When should he have accepted responsibility?"],
+"Victor-Personality":["How would you describe Victor as a young man?","What interests him most?","How does he react when his experiment succeeds?","Is he ambitious or obsessive?","What does his behaviour reveal about his character?","How does he compare with Henry?"],
+"Creature-Actions":["How does the Creature help the De Laceys?","What does he do to William?","Why does he demand a companion?","Which of his actions can you understand?","Which actions are impossible to justify?","What alternatives did he have to revenge?"],
+"Creature-Relationships":["What does the Creature want from Victor?","How does he relate to the De Laceys?","Why does he want a companion?","Is Victor a parent figure?","How might acceptance have changed him?","Who is responsible for their broken relationship?"]};
+const scenes={Victor:["his early fascination with natural philosophy","his work at Ingolstadt","his creation of the Creature","Justine's trial","his destruction of the second creation","his pursuit in the Arctic"],Creature:["his first days alone","his observation of the De Laceys","his reading and education","his encounter with William","his request for a companion","his final meeting with Walton"],Elizabeth:["her childhood with the Frankensteins","her letters to Victor","her defence of Justine","her engagement to Victor","the wedding journey","her death"],Henry:["his friendship with Victor","his arrival at Ingolstadt","his care for Victor","their travels","his murder","Victor's reaction"],Walton:["his letters to Margaret","his desire for friendship","his Arctic voyage","his rescue of Victor","his crew's concerns","his decision to turn back"]};
+function generate(p,t){const s=scenes[p];const map={
+Personality:[`How is ${p} described when we first meet them?`,`What seems to matter most to ${p}?`,`Which scene reveals ${p}'s personality?`,`What contradictions do you notice in ${p}'s behaviour?`,`How does ${p} compare with another character?`,`How does Shelley influence our judgment of ${p}?`,`What would ${p} say about their own flaws?`,`How does the narrative perspective affect your view of ${p}?`],
+Development:[`What is ${p} like at the beginning?`,`What happens to ${p} during ${s[2]}?`,`How does ${p} respond to ${s[3]}?`,`Which event changes ${p} the most?`,`Does ${p} learn from mistakes?`,`What might have helped ${p} change differently?`,`What remains constant in ${p}'s character?`,`How is ${p} different by the end?`],
+Actions:[`What does ${p} do during ${s[2]}?`,`What choice does ${p} make during ${s[3]}?`,`What follows from ${p}'s decisions?`,`Which action is most important to the story?`,`What alternatives did ${p} have?`,`How responsible is ${p} for the consequences?`,`How might another character judge these actions?`,`What would you have done differently?`],
+Relationships:[`Who matters most to ${p}?`,`How does ${p} show affection or concern?`,`What happens to ${p}'s relationships during ${s[3]}?`,`Which relationship shapes ${p} most strongly?`,`What misunderstandings affect ${p}?`,`How could honest communication have changed events?`,`What does ${p} need from other people?`,`What does ${p}'s experience reveal about belonging?`],
+Plot:[`When does ${p} first become important to the plot?`,`What happens involving ${p} during ${s[2]}?`,`What is ${p}'s role in ${s[3]}?`,`How would the story change without ${p}?`,`Which turning point depends on ${p}?`,`What does Shelley reveal or conceal about ${p}?`,`How does ${p}'s story connect with the frame narrative?`,`What might happen if ${p} made a different choice?`],
+Themes:[`Where do we see isolation in ${p}'s experience?`,`How does ${p} encounter ambition or responsibility?`,`What does ${p}'s story suggest about friendship or family?`,`How does ${p} complicate the idea of monstrosity?`,`What does ${p} show about prejudice or acceptance?`,`How does knowledge help or harm ${p}?`,`Which theme is most important to understanding ${p}?`,`What moral question does Shelley leave unresolved through ${p}?`]};return map[t]}
+function seed(){const questions={};people.forEach(p=>topics.forEach(t=>questions[p+"-"+t]=original[p+"-"+t]||generate(p,t)));return{books:{Frankenstein:{people:[...people],questions}},selected:"Frankenstein",sessions:{Frankenstein:{steps:[],status:{}}}}}
+let state=seed(),uid=null,unsubscribe=null,ready=false,writeSerial=Promise.resolve(),lastSaved=0,remoteStamp=0;
+function msg(s){$("message").textContent=s}
+function book(){return state.books[state.selected]}function session(){return state.sessions[state.selected]||(state.sessions[state.selected]={steps:[],status:{}})}
+function element(tag,text,cls){const n=document.createElement(tag);if(text!==undefined)n.textContent=text;if(cls)n.className=cls;return n}
+function options(id,items){$(id).replaceChildren(...items.map(s=>{const o=element("option",s);o.value=s;return o}))}
+function refresh(){options("novel",Object.keys(state.books));$("novel").value=state.selected;options("editPerson",book().people);options("editTopic",topics);editLoad()}
+function editLoad(){$("qtext").value=(book().questions[$("editPerson").value+"-"+$("editTopic").value]||[]).join("\n")}
+function save(){if(!uid){localStorage.setItem("kimcast-backup",JSON.stringify(state));msg("Saved on this device only. Sign in for cloud syncing.");return}if(!ready){msg("Waiting for cloud connection.");return}const snapshot=JSON.parse(JSON.stringify(state)),stamp=Date.now();lastSaved=stamp;writeSerial=writeSerial.then(()=>setDoc(doc(db,"users",uid,"kimcast","state"),{...snapshot,updatedAt:stamp})).then(()=>msg("Saved to cloud.")).catch(e=>msg("Cloud save failed: "+e.message))}
+function grid(filter){const sec=element("section"),g=element("div",undefined,"grid");sec.append(element("h3","Choose your next discussion"));g.append(element("span"));book().people.forEach(p=>g.append(element("span",p)));topics.forEach(t=>{g.append(element("span",t));book().people.forEach(p=>{const k=p+"-"+t,st=session().status[k],b=element("button",st==="done"?"✓":st?"●":"○","cell");if(st)b.classList.add(st==="done"?"done":"visited");b.setAttribute("aria-label",k);if(filter&&((filter.kind==="person"&&p!==filter.value)||(filter.kind==="topic"&&t!==filter.value))){b.classList.add("filtered");b.disabled=true}else b.onclick=()=>openTopic(p,t);g.append(b)})});sec.append(g);return sec}
+function questionList(sec,items,start){const ol=element("ol");ol.start=start+1;items.forEach(q=>ol.append(element("li",q)));sec.append(ol)}
+function openTopic(p,t){const s=session(),k=p+"-"+t;s.status[k] ||= "visited";s.steps.push({person:p,topic:t,filter:null});save();render();const all=$("journey").querySelectorAll("section");all[all.length-2]?.scrollIntoView({behavior:"smooth",block:"start"})}
+function render(){const root=$("journey");root.replaceChildren();const s=session();if(!s.steps.length){root.append(grid(null));return}s.steps.forEach((step,i)=>{const sec=element("section"),k=step.person+"-"+step.topic;sec.append(element("h2",step.person+" — "+step.topic));const q=book().questions[k]||[];sec.append(element("h3","Remember / Understand"));questionList(sec,q.slice(0,3),0);sec.append(element("h3","Analyse / Apply"));questionList(sec,q.slice(3),3);const done=element("button",s.status[k]==="done"?"Completed ✓":"✓ Mark completed","action");done.onclick=()=>{s.status[k]="done";save();render()};sec.append(done);root.append(sec);if(i===s.steps.length-1){const next=element("section");next.append(element("h3","Where next?"),element("p","Stay with "+step.person+", stay with "+step.topic+", or change both."));const choices=element("div",undefined,"row");[["Stay with "+step.person,{kind:"person",value:step.person}],["Stay with "+step.topic,{kind:"topic",value:step.topic}],["Full grid",null]].forEach(([label,f])=>{const b=element("button",label,"action");b.onclick=()=>{step.filter=f;step.chosen=true;save();render();$("nextGrid")?.scrollIntoView({behavior:"smooth",block:"start"})};choices.append(b)});next.append(choices);if(step.chosen){const g=grid(step.filter);g.id="nextGrid";next.append(g)}root.append(next)}})}
+$("novel").onchange=e=>{state.selected=e.target.value;save();refresh();render()};
+$("edit").onclick=()=>{$("editor").classList.remove("hidden");$("editor").scrollIntoView({behavior:"smooth"})};
+$("close").onclick=()=>$("editor").classList.add("hidden");
+$("editPerson").onchange=editLoad;$("editTopic").onchange=editLoad;
+$("saveQ").onclick=()=>{book().questions[$("editPerson").value+"-"+$("editTopic").value]=$("qtext").value.split("\n").map(s=>s.trim()).filter(Boolean);save();render();msg("Questions updated.")};
+$("addNovel").onclick=()=>{const name=prompt("Novel title?")?.trim();if(!name)return;if(state.books[name]){alert("Already exists.");return}const chars=prompt("Character names, separated by commas?")?.split(",").map(s=>s.trim()).filter(Boolean);if(!chars?.length)return;const questions={};chars.forEach(p=>topics.forEach(t=>questions[p+"-"+t]=[]));state.books[name]={people:chars,questions};state.selected=name;save();refresh();render()};
+$("reset").onclick=()=>{if(!confirm("Clear this novel's discussion trail and checkmarks?"))return;state.sessions[state.selected]={steps:[],status:{}};save();render()};
+$("login").onclick=async()=>{try{await signInWithPopup(auth,provider)}catch(e){if(["auth/popup-blocked","auth/operation-not-supported-in-this-environment"].includes(e.code))await signInWithRedirect(auth,provider);else msg("Sign-in error: "+e.message)}};
+$("logout").onclick=()=>signOut(auth);
+try{const backup=JSON.parse(localStorage.getItem("kimcast-backup")||"null");if(backup?.books&&backup?.sessions)state=backup}catch{}
+refresh();render();getRedirectResult(auth).catch(e=>msg("Sign-in error: "+e.message));
+onAuthStateChanged(auth,async u=>{if(unsubscribe){unsubscribe();unsubscribe=null}uid=u?.uid||null;ready=false;$("login").classList.toggle("hidden",!!u);$("logout").classList.toggle("hidden",!u);$("who").textContent=u?.email||"Sign in to sync across devices";if(!u){msg("Sign in with Google to sync.");return}const ref=doc(db,"users",uid,"kimcast","state");try{const snap=await getDoc(ref);if(snap.exists()){const r=snap.data();if(r.books&&r.sessions){state={books:r.books,selected:r.selected,sessions:r.sessions};remoteStamp=r.updatedAt||0;refresh();render()}}else{await setDoc(ref,{...state,updatedAt:Date.now()})}ready=true;msg("Cloud connected. Changes will sync across devices.");unsubscribe=onSnapshot(ref,snap=>{if(!snap.exists())return;const r=snap.data();if((r.updatedAt||0)<=Math.max(remoteStamp,lastSaved))return;if(r.books&&r.sessions){remoteStamp=r.updatedAt;state={books:r.books,selected:r.selected,sessions:r.sessions};refresh();render()}},e=>msg("Sync error: "+e.message))}catch(e){msg("Cloud connection failed: "+e.message)}});
+</script></body></html>
