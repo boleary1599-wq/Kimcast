@@ -1,1 +1,154 @@
 
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>The Kimcast</title>
+<style>
+body{font:16px system-ui;margin:0;background:#f5f6fa;color:#222}
+main{max-width:850px;margin:auto;padding:12px}
+h1{font-size:24px}
+section{background:white;border:1px solid #ddd;border-radius:12px;padding:12px;margin:14px 0}
+.grid{display:grid;grid-template-columns:72px repeat(5,minmax(0,1fr));gap:4px}
+.grid span{font-size:10px;text-align:center;align-self:center;overflow-wrap:anywhere}
+button{cursor:pointer}
+.cell{min-height:42px;border:1px solid #ccc;border-radius:6px;background:#edf0f5;font-size:18px}
+.visited{background:#ffedbc}
+.done{background:#c9efd5}
+.active{outline:3px solid #4479d5}
+li{margin:12px 0;line-height:1.4}
+.action{padding:10px;margin:4px;border:1px solid #aaa;border-radius:8px;background:white}
+small{color:#666}
+</style>
+</head>
+<body>
+<main>
+<h1>The Kimcast</h1>
+<p>Frankenstein conversation navigator</p>
+<div id="journey"></div>
+</main>
+<script>
+const people=["Victor","Creature","Elizabeth","Henry","Walton"];
+const topics=["Personality","Development","Actions","Relationships","Plot","Themes"];
+const status={};
+const journey=document.getElementById("journey");
+
+const questions={
+"Victor-Actions":[
+"What does Victor do immediately after creating the Creature?",
+"Why does he abandon his creation?",
+"What does he do when Justine is accused?",
+"Which decision causes the greatest suffering?",
+"What could Victor have done differently?",
+"When should he have accepted responsibility?"
+],
+"Victor-Personality":[
+"How would you describe Victor as a young man?",
+"What interests him most?",
+"How does he react when his experiment succeeds?",
+"Is he ambitious or obsessive?",
+"What does his behaviour reveal about his character?",
+"How does he compare with Henry?"
+],
+"Creature-Actions":[
+"How does the Creature help the De Laceys?",
+"What does he do to William?",
+"Why does he demand a companion?",
+"Which of his actions can you understand?",
+"Which actions are impossible to justify?",
+"What alternatives did he have to revenge?"
+],
+"Creature-Relationships":[
+"What does the Creature want from Victor?",
+"How does he relate to the De Laceys?",
+"Why does he want a companion?",
+"Is Victor a parent figure?",
+"How might acceptance have changed him?",
+"Who is responsible for their broken relationship?"
+]
+};
+
+function makeGrid(){
+const section=document.createElement("section");
+const heading=document.createElement("h3");
+heading.textContent="Where next?";
+section.append(heading);
+const grid=document.createElement("div");
+grid.className="grid";
+grid.append(document.createElement("span"));
+people.forEach(p=>{
+const s=document.createElement("span");
+s.textContent=p;grid.append(s);
+});
+topics.forEach(t=>{
+const label=document.createElement("span");
+label.textContent=t;grid.append(label);
+people.forEach(p=>{
+const b=document.createElement("button");
+const key=p+"-"+t;
+b.className="cell";
+b.textContent=status[key]==="done"?"✓":status[key]?"●":"○";
+if(status[key])b.classList.add(status[key]==="done"?"done":"visited");
+b.setAttribute("aria-label",key);
+b.onclick=()=>openTopic(p,t);
+grid.append(b);
+});
+});
+section.append(grid);
+return section;
+}
+
+function openTopic(person,topic){
+const key=person+"-"+topic;
+status[key]="visited";
+const section=document.createElement("section");
+const title=document.createElement("h2");
+title.textContent=person+" — "+topic;
+section.append(title);
+
+const list=questions[key]||[
+"What do we learn about "+person+" in relation to "+topic.toLowerCase()+"?",
+"Which scene best illustrates this?",
+"How does this change during the novel?",
+"Why does "+person+" behave this way?",
+"What are the consequences?",
+"How does another character see this differently?"
+];
+const lower=document.createElement("h3");
+lower.textContent="Remember / Understand";
+section.append(lower);
+addQuestions(section,list.slice(0,3));
+const higher=document.createElement("h3");
+higher.textContent="Analyse / Apply";
+section.append(higher);
+addQuestions(section,list.slice(3));
+
+const complete=document.createElement("button");
+complete.className="action";
+complete.textContent="✓ Mark completed";
+complete.onclick=()=>{
+status[key]="done";
+complete.textContent="Completed ✓";
+};
+section.append(complete);
+journey.append(section);
+const next=makeGrid();
+journey.append(next);
+next.scrollIntoView({behavior:"smooth",block:"end"});
+}
+
+function addQuestions(section,items){
+const ol=document.createElement("ol");
+items.forEach(q=>{
+const li=document.createElement("li");
+li.textContent=q;ol.append(li);
+});
+section.append(ol);
+}
+
+journey.append(makeGrid());
+</script>
+</body>
+</html>
+
